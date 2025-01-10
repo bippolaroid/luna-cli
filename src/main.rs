@@ -1,35 +1,53 @@
-use std::env;
-use std::io::{self, Write};
-use std::process::Command;
-use std::str;
+use std::collections::HashMap;
 
-fn main() {
-    loop {
-        let current_dir = env::current_dir().expect("Failed to get current directory");
-        print!("{}> ", current_dir.display());
-        io::stdout().flush().unwrap();
+use serde_json::Value;
 
-        let mut input = String::new();
-        io::stdin()
-            .read_line(&mut input)
-            .expect("Failed to read line");
+#[macro_use]
+extern crate rocket;
 
-        let command = input.trim();
-        if command.eq_ignore_ascii_case("exit") {
-            break;
+#[get("/")]
+fn hello() -> &'static str {
+    "Hello, world!"
+}
+
+#[launch]
+async fn rocket() -> _ {
+    let mut map: HashMap<&str, serde_json::Value> = HashMap::new();
+
+    map.insert(
+        "model",
+        serde_json::Value::String("bippy/luna1".to_string()),
+    );
+    map.insert("prompt", serde_json::Value::String("Hello!".to_string()));
+    map.insert("stream", serde_json::Value::Bool(false));
+
+    let json_body = serde_json::to_string(&map).expect("Failed to serialize");
+    println!("{}", json_body);
+
+    let client = reqwest::Client::new();
+    let res = client
+        .post("http://localhost:11434/api/generate")
+        .json(&map)
+        .send()
+        .await;
+
+    match res {
+        Ok(response) => {
+            let response_text = response.text().await.unwrap_or_default();
+            if let Ok(parsed) = serde_json::from_str::<Value>(&response_text) {
+                if let Some(response_field) = parsed.get("response") {
+                    println!("{}", response_field);
+                } else {
+                    println!("failed to parse");
+                }
+            } else {
+                println!("error fetching")
+            }
         }
-
-        let output = Command::new("cmd")
-            .args(&["/C", command])
-            .output()
-            .expect("Failed to execute command");
-
-        if output.status.success() {
-            let stdout = str::from_utf8(&output.stdout).expect("Invalid UTF-8 in output");
-            println!("{}", stdout);
-        } else {
-            let stderr = str::from_utf8(&output.stderr).expect("Invalid UTF-8 in error output");
-            eprintln!("Command failed with error: {}", stderr);
+        Err(_) => {
+            println!("Error");
         }
     }
+
+    rocket::build().mount("/", routes![hello])
 }
