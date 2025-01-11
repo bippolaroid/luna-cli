@@ -889,10 +889,12 @@ name = "luna-cli"
 version = "0.1.0"
 dependencies = [
  "hyper 1.5.2",
+ "lazy_static",
  "reqwest",
  "rocket",
  "serde",
  "serde_json",
+ "tokio",
 ]
 
 [[package]]
@@ -1801,6 +1803,7 @@ dependencies = [
  "bytes",
  "libc",
  "mio",
+ "parking_lot",
  "pin-project-lite",
  "signal-hook-registry",
  "socket2",
