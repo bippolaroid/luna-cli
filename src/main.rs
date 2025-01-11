@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::io::{self, Write};
+use std::process::Command;
 
 use serde_json::Value;
 
@@ -49,7 +50,10 @@ async fn generate() {
         "model",
         serde_json::Value::String("bippy/cli-tool".to_string()),
     );
-    map.insert("prompt", serde_json::Value::String("C:\\>".to_string()));
+    map.insert(
+        "prompt",
+        serde_json::Value::String("C:\\Users\\guest\\Desktop>".to_string()),
+    );
     map.insert("stream", serde_json::Value::Bool(false));
 
     let json_body = serde_json::to_string(&map).expect("Failed to serialize");
@@ -64,19 +68,39 @@ async fn generate() {
 
     match res {
         Ok(response) => {
-            let response_text = response.text().await.unwrap_or_default();
+            let response_text = response.text().await.unwrap();
             if let Ok(parsed) = serde_json::from_str::<Value>(&response_text) {
                 if let Some(response_field) = parsed.get("response") {
-                    println!("{}", response_field);
+                    if let Value::String(ref response_str) = response_field {
+                        let output = Command::new("cmd")
+                            .args(&["/C"])
+                            .args(&[&response_str])
+                            .output()
+                            .expect("Failed to execute process.");
+
+                        if output.status.success() {
+                            let stdout = String::from_utf8_lossy(&output.stdout);
+                            println!("\nEXECUTING CODE: {}", &response_str);
+                            println!("- - - - - - - - - -\n");
+                            println!("{}", &stdout);
+                            println!("- - - - - - - - - -");
+                        } else {
+                            let stderr = String::from_utf8_lossy(&output.stderr);
+                            println!("Error: {}", stderr);
+                            println!("{}", &response_str);
+                        }
+                    } else {
+                        println!("Response field is not a string.");
+                    }
                 } else {
-                    println!("failed to parse");
+                    println!("Failed to parse response field.");
                 }
             } else {
-                println!("error fetching")
+                println!("Error parsing response text.");
             }
         }
         Err(_) => {
-            println!("Error");
+            println!("Request error");
         }
     }
 }
