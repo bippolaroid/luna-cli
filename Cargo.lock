@@ -890,6 +890,7 @@ version = "0.1.0"
 dependencies = [
  "hyper 1.5.2",
  "lazy_static",
+ "once_cell",
  "reqwest",
  "rocket",
  "serde",
